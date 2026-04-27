@@ -1,0 +1,5 @@
+venv/
+data/raw/ICBHI_final_database/
+data/processed/*.npz
+*.wav
+*.npz

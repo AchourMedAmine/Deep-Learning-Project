@@ -1,0 +1,11 @@
+transformers
+librosa
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+tqdm
+soundfile
+pyyaml
+torch
