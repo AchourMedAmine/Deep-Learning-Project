@@ -20,5 +20,5 @@ class BreathDataset(Dataset):
                 wav=wav+np.random.normal(0,0.0001,wav.shape)
         inputs=self.processor(wav,sampling_rate=16000,return_tensors="pt")
         input_values=inputs.input_values.squeeze(0)
-        return input_values,torch.tensor(self.y[idx],dtype=torch.long),self.device_ids[idx]
+        return input_values,torch.tensor(self.y[idx],dtype=torch.long),self.devices_id[idx]
 

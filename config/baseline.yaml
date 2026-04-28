@@ -1,0 +1,37 @@
+# Baseline Configuration: AST + SAM (Paper Reproduction)
+# =======================================================
+
+# Data
+data:
+  data_path: "./data/processed/icbhi_ast_16k_8s.npz"
+  sample_rate: 16000
+  duration: 8  # seconds
+
+# Model
+model:
+  name: "AST"
+  pretrained: "MIT/ast-finetuned-audioset-10-10-0.4593"
+  num_classes: 4
+  dropout: 0.3
+  pooling: "mean"  # mean pooling over patch embeddings
+
+# Training
+training:
+  epochs: 20
+  batch_size: 8
+  seed: 42
+  label_smoothing: 0.1
+
+# Optimizer (SAM wrapping AdamW)
+optimizer:
+  name: "SAM"
+  base_optimizer: "AdamW"
+  lr: 1.0e-5
+  weight_decay: 1.0e-4
+  rho: 0.05  # SAM perturbation radius
+
+# Output
+output:
+  checkpoint_dir: "./results/baseline/checkpoints"
+  log_dir: "./results/baseline/logs"
+  plot_dir: "./results/baseline/plots"
