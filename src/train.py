@@ -7,8 +7,9 @@ from tqdm import tqdm
 import os
 import argparse
 
-from src.data.dataset import BreathDataset
+from src.data.dataset import BreathDataset, SSASTBreathDataset
 from src.models.base_ast import ASTClassifier
+from src.models.ssast import SSASTModel
 from src.optim.sam import SAM
 from src.utils.seed import set_seed
 from src.utils.metrics import compute_icbhi_metrics
@@ -23,8 +24,22 @@ def train(args):
     X_train, y_train, d_train = data['X_train'], data['y_train'], data['device_train']
     X_test, y_test, d_test = data['X_test'], data['y_test'], data['device_test']
 
-    # Feature extractor (waveform → spectrogram)
-    processor = ASTFeatureExtractor.from_pretrained("MIT/ast-finetuned-audioset-10-10-0.4593")
+    # --- Model Selection ---
+    if args.model == 'ssast':
+        # SSAST: uses raw log-mel spectrograms
+        train_ds = SSASTBreathDataset(X_train, y_train, d_train, train=True)
+        test_ds = SSASTBreathDataset(X_test, y_test, d_test, train=False)
+        model = SSASTModel(
+            label_dim=4, fshape=16, tshape=16, fstride=10, tstride=10,
+            input_fdim=128, input_tdim=1024, model_size='base',
+            load_pretrained_mdl_path=args.pretrained_path
+        ).to(DEVICE)
+    else:
+        # Baseline AST: uses HuggingFace feature extractor
+        processor = ASTFeatureExtractor.from_pretrained("MIT/ast-finetuned-audioset-10-10-0.4593")
+        train_ds = BreathDataset(X_train, y_train, d_train, processor, train=True)
+        test_ds = BreathDataset(X_test, y_test, d_test, processor, train=False)
+        model = ASTClassifier(num_classes=4).to(DEVICE)
 
     # Weighted Random Sampler (handles class imbalance)
     counts = np.bincount(y_train)
@@ -32,20 +47,14 @@ def train(args):
     sampler = WeightedRandomSampler(weights, len(y_train))
 
     # DataLoaders
-    train_loader = DataLoader(
-        BreathDataset(X_train, y_train, d_train, processor, train=True),
-        batch_size=args.batch_size, sampler=sampler
-    )
-    test_loader = DataLoader(
-        BreathDataset(X_test, y_test, d_test, processor, train=False),
-        batch_size=args.batch_size, shuffle=False
-    )
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, sampler=sampler)
+    test_loader = DataLoader(test_ds, batch_size=args.batch_size, shuffle=False)
 
-    # Model + Optimizer + Loss
-    model = ASTClassifier(num_classes=4).to(DEVICE)
+    # Optimizer + Loss
     base_optimizer = torch.optim.AdamW
     optimizer = SAM(model.parameters(), base_optimizer, lr=args.lr, rho=0.05, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+
     # Training loop
     best_score = 0.0
     os.makedirs(args.checkpoint_dir, exist_ok=True)
@@ -94,6 +103,8 @@ def train(args):
             print(f"    --> Saved best model (Score={best_score:.4f})")
 
     print(f"\nBest Score: {best_score:.4f}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, default="./data/processed/icbhi_ast_16k_8s.npz")
@@ -101,5 +112,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-5)
+    parser.add_argument("--model", type=str, default="ast", choices=["ast", "ssast"])
+    parser.add_argument("--pretrained_path", type=str, default="./pretrained/SSAST-Base-Patch-400.pth")
     args = parser.parse_args()
     train(args)

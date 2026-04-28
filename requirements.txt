@@ -9,3 +9,5 @@ tqdm
 soundfile
 pyyaml
 torch
+timm==0.4.5
+torchaudio

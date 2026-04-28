@@ -1,0 +1,43 @@
+# Experiment P4: SSAST (Self-Supervised Audio Spectrogram Transformer)
+# ====================================================================
+
+# Data
+data:
+  data_path: "./data/processed/icbhi_ast_16k_8s.npz"
+  sample_rate: 16000
+  duration: 8
+
+# Model
+model:
+  name: "SSAST"
+  pretrained_path: "./pretrained/SSAST-Base-Patch-400.pth"
+  num_classes: 4
+  fshape: 16
+  tshape: 16
+  fstride: 10
+  tstride: 10
+  input_fdim: 128
+  input_tdim: 1024
+  model_size: "base"
+  pooling: "mean"
+
+# Training
+training:
+  epochs: 20
+  batch_size: 8
+  seed: 42
+  label_smoothing: 0.1
+
+# Optimizer (SAM wrapping AdamW)
+optimizer:
+  name: "SAM"
+  base_optimizer: "AdamW"
+  lr: 1.0e-5
+  weight_decay: 1.0e-4
+  rho: 0.05
+
+# Output
+output:
+  checkpoint_dir: "./results/ssast/checkpoints"
+  log_dir: "./results/ssast/logs"
+  plot_dir: "./results/ssast/plots"
