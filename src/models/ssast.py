@@ -29,7 +29,7 @@ class SSASTModel(nn.Module):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if load_pretrained_mdl_path is None:
             raise ValueError('Please provide load_pretrained_mdl_path')
-        sd = torch.load(load_pretrained_mdl_path, map_location=device)
+        sd = torch.load(load_pretrained_mdl_path, map_location=device, weights_only=False)
         # Get pretraining patch shape and input dims from saved weights
         p_fshape = sd['module.v.patch_embed.proj.weight'].shape[2]
         p_tshape = sd['module.v.patch_embed.proj.weight'].shape[3]

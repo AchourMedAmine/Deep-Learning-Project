@@ -145,10 +145,10 @@ def evaluate(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, default="./data/processed/icbhi_ast_16k_8s.npz")
-    parser.add_argument("--model_path", type=str, default="./results/baseline/checkpoints/best_model.pth")
-    parser.add_argument("--output_plot", type=str, default="./results/baseline/confusion_matrix.png")
+    parser.add_argument("--model_path", type=str, default="./results/best_model.pth")
+    #parser.add_argument("--output_plot", type=str, default="./results/exp_p1_wavelets/confusion_matrix.png")
     parser.add_argument("--batch_size", type=int, default=8)
-    parser.add_argument("--model", type=str, default="ast", choices=["ast", "ssast"])
+    parser.add_argument("--model", type=str, default="ssast", choices=["ast", "ssast"])
     parser.add_argument("--pretrained_path", type=str, default="./pretrained/SSAST-Base-Patch-400.pth")
     args = parser.parse_args()
     evaluate(args)

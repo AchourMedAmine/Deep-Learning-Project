@@ -41,6 +41,10 @@ def train(args):
         test_ds = BreathDataset(X_test, y_test, d_test, processor, train=False)
         model = ASTClassifier(num_classes=4).to(DEVICE)
 
+    if args.resume_from:
+        print(f"Loading weights to resume training from {args.resume_from}")
+        model.load_state_dict(torch.load(args.resume_from, map_location=DEVICE))
+
     # Weighted Random Sampler (handles class imbalance)
     counts = np.bincount(y_train)
     weights = [1.0 / counts[y] for y in y_train]
@@ -55,11 +59,29 @@ def train(args):
     optimizer = SAM(model.parameters(), base_optimizer, lr=args.lr, rho=0.05, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
-    # Training loop
+    start_epoch = args.start_epoch
     best_score = 0.0
+
+    if args.resume_from:
+        print(f"Loading checkpoint from {args.resume_from}")
+        checkpoint = torch.load(args.resume_from, map_location=DEVICE)
+        if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+            if 'optimizer_state_dict' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            if 'epoch' in checkpoint and args.start_epoch == 0:
+                start_epoch = checkpoint['epoch']
+            if 'best_score' in checkpoint:
+                best_score = checkpoint['best_score']
+            print(f"Resumed from epoch {start_epoch}")
+        else:
+            # It's just a raw state dict
+            model.load_state_dict(checkpoint)
+
+    # Training loop
     os.makedirs(args.checkpoint_dir, exist_ok=True)
 
-    for epoch in range(args.epochs):
+    for epoch in range(start_epoch, args.epochs):
         model.train()
         running_loss = 0.0
 
@@ -95,6 +117,17 @@ def train(args):
         avg_loss = running_loss / len(train_loader)
         print(f"Epoch {epoch+1}: Loss={avg_loss:.4f} | Se={se:.4f} | Sp={sp:.4f} | Score={score:.4f}")
 
+        # Save checkpoint for every epoch
+        checkpoint = {
+            'epoch': epoch + 1,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'best_score': max(score, best_score)
+        }
+        epoch_path = os.path.join(args.checkpoint_dir, f"checkpoint_epoch_{epoch+1}.pth")
+        torch.save(checkpoint, epoch_path)
+        print(f"    --> Saved checkpoint for epoch {epoch+1}")
+
         # Save best model
         if score > best_score:
             best_score = score
@@ -114,5 +147,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--model", type=str, default="ast", choices=["ast", "ssast"])
     parser.add_argument("--pretrained_path", type=str, default="./pretrained/SSAST-Base-Patch-400.pth")
+    parser.add_argument("--resume_from", type=str, default=None, help="Path to checkpoint to resume training from")
+    parser.add_argument("--start_epoch", type=int, default=0, help="Epoch to start from")
     args = parser.parse_args()
     train(args)
