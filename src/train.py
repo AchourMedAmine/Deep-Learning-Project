@@ -41,9 +41,6 @@ def train(args):
         test_ds = BreathDataset(X_test, y_test, d_test, processor, train=False)
         model = ASTClassifier(num_classes=4).to(DEVICE)
 
-    if args.resume_from:
-        print(f"Loading weights to resume training from {args.resume_from}")
-        model.load_state_dict(torch.load(args.resume_from, map_location=DEVICE))
 
     # Weighted Random Sampler (handles class imbalance)
     counts = np.bincount(y_train)
@@ -60,7 +57,7 @@ def train(args):
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
     start_epoch = args.start_epoch
-    best_score = 0.0
+    best_score = args.best_score
 
     if args.resume_from:
         print(f"Loading checkpoint from {args.resume_from}")
@@ -85,19 +82,31 @@ def train(args):
         model.train()
         running_loss = 0.0
 
+        print(f"\nStarting Epoch {epoch+1}...")
         progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs}", leave=False)
-        for inputs, labels, _ in progress_bar:
+        for i, (inputs, labels, _) in enumerate(progress_bar):
+            if i == 0: print("  -> Batch 0 loaded. Moving to device...")
             inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
 
+            if i == 0: print("  -> Running first forward pass...")
             # SAM Step 1: forward + backward at current weights
             logits = model(inputs)
             loss = criterion(logits, labels)
+            
+            if i == 0: print("  -> Running first backward pass...")
             loss.backward()
+            
+            if i == 0: print("  -> Running SAM first_step...")
             optimizer.first_step(zero_grad=True)
 
+            if i == 0: print("  -> Running second forward/backward pass...")
             # SAM Step 2: forward + backward at perturbed weights
             criterion(model(inputs), labels).backward()
+            
+            if i == 0: print("  -> Running SAM second_step...")
             optimizer.second_step(zero_grad=True)
+            
+            if i == 0: print("  -> Batch 0 completed successfully!")
 
             running_loss += loss.item()
             progress_bar.set_postfix({'Loss': f'{loss.item():.4f}'})
@@ -149,5 +158,6 @@ if __name__ == "__main__":
     parser.add_argument("--pretrained_path", type=str, default="./pretrained/SSAST-Base-Patch-400.pth")
     parser.add_argument("--resume_from", type=str, default=None, help="Path to checkpoint to resume training from")
     parser.add_argument("--start_epoch", type=int, default=0, help="Epoch to start from")
+    parser.add_argument("--best_score", type=float, default=0.0, help="Initial best score to beat when resuming from raw weights")
     args = parser.parse_args()
     train(args)
